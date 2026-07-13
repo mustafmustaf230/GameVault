@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
@@ -9,6 +9,7 @@ import { Eye, Clock, ArrowLeft, Send, Trash2, Crown, Lock } from "lucide-react";
 
 export default function ArticlePage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const { session, profile } = useAuth();
   const [article, setArticle] = useState<Article | null>(null);
@@ -54,6 +55,14 @@ export default function ArticlePage() {
     if (!error) setComments(comments.filter(c => c.id !== commentId));
   };
 
+  const deleteArticle = async () => {
+    if (!id || !profile?.is_admin) return;
+    if (!confirm("Are you sure you want to delete this article? This cannot be undone.")) return;
+    const { error } = await supabase.from("articles").delete().eq("id", id);
+    if (error) { setError(error.message); return; }
+    navigate("/news");
+  };
+
   if (loading) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
@@ -91,11 +100,19 @@ export default function ArticlePage() {
 
         <h1 className="mt-3 font-display text-3xl font-bold leading-tight text-neutral-900 dark:text-white sm:text-4xl">{article.title}</h1>
 
-        <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-neutral-500">
-          <span className="flex items-center gap-1"><Eye className="h-4 w-4" /> {article.views} {t("article.views")}</span>
-          <span className="flex items-center gap-1"><Clock className="h-4 w-4" /> {timeAgo(article.created_at, i18n.language)}</span>
-          <span className="text-neutral-400" title={t("article.autoDeleteNote")}>⏳ {timeRemaining(article.created_at)}</span>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-4 text-sm text-neutral-500">
+          <div className="flex flex-wrap items-center gap-4">
+            <span className="flex items-center gap-1"><Eye className="h-4 w-4" /> {article.views} {t("article.views")}</span>
+            <span className="flex items-center gap-1"><Clock className="h-4 w-4" /> {timeAgo(article.created_at, i18n.language)}</span>
+            <span className="text-neutral-400" title={t("article.autoDeleteNote")}>⏳ {timeRemaining(article.created_at)}</span>
+          </div>
+          {profile?.is_admin && (
+            <button onClick={deleteArticle} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-error-600 transition-colors hover:bg-error-50 dark:hover:bg-error-900/20">
+              <Trash2 className="h-4 w-4" /> Delete Article
+            </button>
+          )}
         </div>
+        {error && <p className="mt-2 text-sm text-error-500">{error}</p>}
 
         {article.cover_image_url && (
           <div className="mt-6 overflow-hidden rounded-xl">
